@@ -16,6 +16,24 @@ description: >
 Blocked pages are not a signal to improvise with one-off headers. They are a
 signal to run the engine and follow its exhaustion gates.
 
+## When NOT to use this skill
+
+Do not invoke the engine for tasks that do not require fetching a specific
+public URL. Use the lighter tool for each case:
+
+| User intent | Right tool | Why |
+|-------------|-----------|-----|
+| "Find news about X" / "what's trending" | `websearch` | Discovery, not extraction from a known URL |
+| "Explain how Y works" / "what is Z" | Direct LLM answer | No fetch needed |
+| "Translate this text" / "summarize this paste" | Direct LLM answer | Input is already in context |
+| "Download this video as MP3/MP4" | `yt-dlp` or media tool directly | This skill fetches text, not binaries |
+| "Search GitHub for repos matching X" | `gh search` or GitHub API | Has its own first-party tooling |
+| "Read this URL I just gave you, it's public" | This skill ONLY if webfetch/curl failed | Otherwise prefer webfetch (cheaper) |
+
+Trigger rule of thumb: **invoke the engine only when (a) the user named a
+specific URL AND (b) the simpler tools already failed or are known to fail
+for that domain** (X, Reddit, Korean communities, paywalled news, etc.).
+
 ## Entry point
 
 Always run the engine from this skill directory:
@@ -104,6 +122,29 @@ When the first attempts show a known WAF challenge and the user asks for a list,
 collection, pagination, crawling, or “전부”, do not wait for the full HTML grid
 before looking for internal APIs. Keep the engine path running when practical,
 but use the browser/network route to find JSON endpoints sooner.
+
+## Presenting the result to the user
+
+The engine returns a JSON object with `ok`, `verdict`, `content` (or
+`final_url`), and a `trace` array. When `ok=true`, present it like this:
+
+1. **One-paragraph summary** of what the page actually says (2-4 sentences,
+   your own words, no engine trace). If the user asked for a list, give
+   the list — not a generic summary.
+2. **Source citation**: the resolved `final_url`, the phase that succeeded
+   (`phase0` / `probe` / `phase2` / browser), and the executor (e.g.
+   `curl_cffi`, `rss`, `yt-dlp`, `playwright`). One line.
+3. **Key excerpt** when relevant: the most quotable 1-3 sentences from the
+   content, attributed to the source. Skip for trivial data (timestamps,
+   prices) where a summary is enough.
+4. **Confidence flag** based on `verdict`:
+   - `strong_ok` → present findings as fact
+   - `weak_ok` → say so ("engine got through but with caveats: …")
+   - `ok=false` → see R6; never present partial data as success
+
+Do not dump the raw trace, the full body, or the JSON to the user. The
+engine's job is to clear the WAF; the LLM's job is to turn the cleared
+content into an answer.
 
 ## References
 
