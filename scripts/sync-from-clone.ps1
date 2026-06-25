@@ -11,7 +11,9 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
 # 프로젝트 루트를 scripts/ 하위가 아닌 한 단계 위로 지정
+# (BAT/PS1 직접 실행 시 MyInvocation.MyCommand.Path = 스크립트 경로)
 $ScriptDir = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 
 # ── 기본 경로 ──────────────────────────────────────────────
