@@ -9,6 +9,7 @@ venv/
 .omo/
 .cortexkit/
 .codegraph/
+.serena/
 
 # Git & clone references
 clone/
