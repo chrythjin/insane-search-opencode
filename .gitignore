@@ -28,3 +28,6 @@ __pycache__/
 
 # Skill-specific virtualenv (from setup.ps1)
 skills/insane-search/.venv/
+
+# Bundled .git from upstream clone (should not be tracked)
+skills/insane-search/.git/
