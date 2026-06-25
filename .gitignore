@@ -1,0 +1,30 @@
+# Virtual environments
+.venv/
+venv/
+**/site-packages/
+**/.venv/
+**/venv/
+
+# Agent & workspace metadata
+.omo/
+.cortexkit/
+.codegraph/
+
+# Git & clone references
+clone/
+.git/
+
+# Python Cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# OS & IDE
+.DS_Store
+.vscode/
+.idea/
+
+# Skill-specific virtualenv (from setup.ps1)
+skills/insane-search/.venv/
