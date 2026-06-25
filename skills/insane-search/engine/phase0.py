@@ -60,11 +60,11 @@ def _detect(url: str) -> Optional[str]:
     h = _host(url)
     if not h:
         return None
-    if "reddit.com" in h or h == "redd.it":
+    if "reddit.com" in h or h == "redd.it":  # NOTE-BIAS-OK: Phase 0 public API domain
         return "reddit"
-    if h in ("x.com", "twitter.com") or h.endswith(".x.com") or h.endswith(".twitter.com"):
+    if h in ("x.com", "twitter.com") or h.endswith(".x.com") or h.endswith(".twitter.com"):  # NOTE-BIAS-OK: Phase 0 public API domain
         return "x"
-    if "youtube.com" in h or h == "youtu.be":
+    if "youtube.com" in h or h == "youtu.be":  # NOTE-BIAS-OK: Phase 0 public API domain
         return "youtube"
     return None
 
@@ -116,7 +116,7 @@ def _x(url: str, timeout: int) -> dict:
     if m:  # single tweet → tweet-result + oembed (both no-auth, reliable)
         tid = m.group(1)
         try:
-            x = _cffi_get(f"https://cdn.syndication.twimg.com/tweet-result?id={tid}&token=a", timeout=timeout)
+            x = _cffi_get(f"https://cdn.syndication.twimg.com/tweet-result?id={tid}&token=a", timeout=timeout)  # NOTE-BIAS-OK: Phase 0 official Twitter/X embed API
             d = x.json() if x.status_code == 200 else {}
             ok = bool(d.get("text"))
             attempts.append(_attempt("x", "tweet-result", ok, x.status_code, x.text,
@@ -127,7 +127,7 @@ def _x(url: str, timeout: int) -> dict:
         except Exception as e:
             attempts.append(_attempt("x", "tweet-result", False, 0, "", f"{type(e).__name__}"))
         try:
-            ourl = f"https://publish.twitter.com/oembed?url=https://twitter.com/i/status/{tid}&omit_script=1"
+            ourl = f"https://publish.twitter.com/oembed?url=https://twitter.com/i/status/{tid}&omit_script=1"  # NOTE-BIAS-OK: Phase 0 official Twitter/X oEmbed API
             x = _cffi_get(ourl, timeout=timeout)
             d = x.json() if x.status_code == 200 else {}
             ok = bool(d.get("html"))
@@ -142,7 +142,7 @@ def _x(url: str, timeout: int) -> dict:
         handle = urlsplit(url).path.strip("/").split("/")[0]
         _reserved = {"i", "search", "home", "explore", "messages", "notifications", "settings", "hashtag"}
         if handle and handle.lower() not in _reserved:
-            surl = f"https://syndication.twitter.com/srv/timeline-profile/screen-name/{handle}"
+            surl = f"https://syndication.twitter.com/srv/timeline-profile/screen-name/{handle}"  # NOTE-BIAS-OK: Phase 0 official Twitter/X syndication API
             for attempt_no in range(2):
                 try:
                     x = _cffi_get(surl, timeout=timeout)

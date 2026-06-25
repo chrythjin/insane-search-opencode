@@ -70,6 +70,21 @@ if (-not (Test-Path $OpenCodeSkills) -and -not $SkipDeploy) {
     Write-Warn "OpenCode 스킬 디렉토리가 없습니다. --SkipDeploy를 사용하면 건너뜁니다."
 }
 
+# ── 디렉터리 복사 헬퍼 (robocopy 미러 방식으로 중첩 방지) ────────────
+function Copy-Dir-Mirrored {
+    param([string]$Src, [string]$Dst)
+
+    if (-not (Test-Path $Dst)) {
+        New-Item -ItemType Directory -Path $Dst -Force | Out-Null
+    }
+
+    # robocopy /MIR: 소스 내용을 대상 안으로 병합, 중첩 안 됨, 삭제 파일도 정리
+    robocopy $Src $Dst /MIR /NP /NDL /NC /NJH /NJS | Out-Null
+    if ($LASTEXITCODE -ge 8) {
+        throw "robocopy failed: $Src -> $Dst (code $LASTEXITCODE)"
+    }
+}
+
 # ── 1. Clone → Ported 동기화 ────────────────────────────────
 Write-Step "=== Clone → Ported 동기화 시작 ==="
 
@@ -79,11 +94,10 @@ foreach ($item in $SyncItems) {
 
     if (Test-Path $src) {
         if (Test-Path $dst) {
-            # 파일이면 내용 비교 후 교체, 디렉토리면 그대로 덮어쓰기
             $srcItem = Get-Item $src
             if ($srcItem.PSIsContainer) {
-                Copy-Item -Recurse -Force -LiteralPath $src -Destination $dst
-                Write-Done "디렉토리 교체: $item"
+                Copy-Dir-Mirrored -Src $src -Dst $dst
+                Write-Done "디렉토리 동기화: $item"
             } else {
                 $hashSrc = (Get-FileHash -LiteralPath $src -Algorithm SHA256).Hash
                 $hashDst = (Get-FileHash -LiteralPath $dst -Algorithm SHA256).Hash
@@ -95,7 +109,6 @@ foreach ($item in $SyncItems) {
                 }
             }
         } else {
-            # 포트 디렉토리에 없으면 새로 복사
             Copy-Item -Recurse -Force -LiteralPath $src -Destination $dst
             Write-Done "신규 추가: $item"
         }
@@ -103,9 +116,6 @@ foreach ($item in $SyncItems) {
         Write-Warn "원본에 없음 (패스): $item"
     }
 }
-
-# engine/, references/ は再帰コピー済므로 서브디렉토리 추가 복사가 불필요
-# (clone/skills/insane-search/engine/ 안에는 engine/ 패키지, templates/, tests/ 가 이미 포함)
 
 # ── 2. Ported → OpenCode 배포 ───────────────────────────────
 if (-not $SkipDeploy) {
@@ -121,19 +131,15 @@ if (-not $SkipDeploy) {
         $dst = Join-Path $OpenCodeSkills $item
 
         if (Test-Path $src) {
-            if (Test-Path $dst) {
-                $srcItem = Get-Item $src
-                if ($srcItem.PSIsContainer) {
-                    Copy-Item -Recurse -Force -LiteralPath $src -Destination $dst
-                } else {
-                    $hashSrc = (Get-FileHash -LiteralPath $src -Algorithm SHA256).Hash
-                    $hashDst = (Get-FileHash -LiteralPath $dst -Algorithm SHA256).Hash
-                    if ($hashSrc -ne $hashDst) {
-                        Copy-Item -Force -LiteralPath $src -Destination $dst
-                    }
-                }
+            $srcItem = Get-Item $src
+            if ($srcItem.PSIsContainer) {
+                Copy-Dir-Mirrored -Src $src -Dst $dst
             } else {
-                Copy-Item -Recurse -Force -LiteralPath $src -Destination $dst
+                $hashSrc = (Get-FileHash -LiteralPath $src -Algorithm SHA256).Hash
+                $hashDst = Get-FileHash -LiteralPath $dst -Algorithm SHA256 -ErrorAction SilentlyContinue
+                if (-not $hashDst -or $hashSrc -ne $hashDst.Hash) {
+                    Copy-Item -Force -LiteralPath $src -Destination $dst
+                }
             }
             Write-Done "배포 완료: $item"
         }

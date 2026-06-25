@@ -16,7 +16,6 @@ import os
 import re
 import sys
 from pathlib import Path
-from typing import cast
 
 
 # Known brand / domain substrings that should NOT appear in engine code.
@@ -79,13 +78,15 @@ COMMENT_OK_MARKERS = {
     ".md": ("<!-- NOTE-BIAS-OK -->", "<!-- EXAMPLE-ONLY -->"),
 }
 
-# File paths explicitly exempted (slash-normalized suffix match).
+# File paths explicitly exempted (full match against relative path from scan root).
 EXPLICIT_ALLOW_FILES = {
     # Phase 0 official-API router. Per SKILL.md R5, naming platform hosts here is
     # the SANCTIONED exception — these are official no-auth public endpoints, not
     # a bias toward one target. This is the ONLY engine/ file allowed to do so;
     # keeping it isolated is precisely why the rest of engine/ stays site-agnostic.
-    "engine/phase0.py",
+    # NOTE: rel paths are computed against skill_root.parent, so they include the
+    # skill dir name (e.g. "insane-search/engine/phase0.py").
+    "insane-search/engine/phase0.py",
 }
 
 
@@ -97,8 +98,7 @@ def _line_is_exempt(line: str, ext: str) -> bool:
 def _scan_file(path: Path, root: Path) -> list[str]:
     """Return list of violation strings for this file."""
     rel = path.relative_to(root.parent)
-    rel_posix = rel.as_posix()
-    if any(rel_posix.endswith(allowed) for allowed in EXPLICIT_ALLOW_FILES):
+    if str(rel) in EXPLICIT_ALLOW_FILES:
         return []
 
     ext = path.suffix.lower()
@@ -136,16 +136,14 @@ def _scan_file(path: Path, root: Path) -> list[str]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Scan engine for site-name bias")
-    _ = parser.add_argument("--strict", action="store_true",
-                            help="Also scan references/*.md (usually noisy — off by default)")
-    _ = parser.add_argument("--root", default=None,
-                            help="Skill root directory. Defaults to parent of this file.")
-    parsed = cast(dict[str, object], vars(parser.parse_args(argv)))
-    strict = bool(parsed["strict"])
-    root_arg = parsed["root"]
+    parser.add_argument("--strict", action="store_true",
+                        help="Also scan references/*.md (usually noisy — off by default)")
+    parser.add_argument("--root", default=None,
+                        help="Skill root directory. Defaults to parent of this file.")
+    args = parser.parse_args(argv)
 
-    skill_root = Path(root_arg) if isinstance(root_arg, str) else Path(__file__).parent.parent
-    scan_roots = SCAN_ROOTS_STRICT_ON if strict else SCAN_ROOTS_STRICT_OFF
+    skill_root = Path(args.root) if args.root else Path(__file__).parent.parent
+    scan_roots = SCAN_ROOTS_STRICT_ON if args.strict else SCAN_ROOTS_STRICT_OFF
 
     total_violations: list[str] = []
     scanned = 0
